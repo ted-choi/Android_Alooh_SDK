@@ -38,7 +38,7 @@ public class MQTTService extends Service {
                         
             options.setUserName(UserManager.GetAuthKey());
             options.setPassword("default".toCharArray());
-            mqttClient.setCallback(new SubscribeCallback());
+           // mqttClient.setCallback(new SubscribeCallback());
             mqttClient.connect(options);
             Log.i("", "feedId = "+mFeedId);
             mqttClient.subscribe(mFeedId);

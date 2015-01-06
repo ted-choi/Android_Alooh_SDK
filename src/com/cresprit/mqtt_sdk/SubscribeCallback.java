@@ -15,8 +15,8 @@ import android.util.Log;
 public class SubscribeCallback implements MqttCallback {
 	static IUpdateListener listener;
     
-    public SubscribeCallback() {
-
+    public SubscribeCallback(IUpdateListener _listener) {
+    	listener = _listener;
     }
 
 
@@ -38,8 +38,5 @@ public class SubscribeCallback implements MqttCallback {
 		
 	}
 	
-	public static void setListener(IUpdateListener _listener)
-	{
-		listener = _listener;
-	}
+
 }

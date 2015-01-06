@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Vector;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -31,8 +32,10 @@ import android.widget.Toast;
 
 public class MQTTSDK
 {
+	private static final String TAG = "MQTTSDK";
 	public static final String SERVER_API_LOGIN_URL = "http://api.alooh.io:50001/api/v1/session";
 	private static final String FEEDID = "com.cresprit.mqtt_sdk.feedid";
+	private final static Vector<DeviceInfo> deviceList = new Vector<DeviceInfo>();
 	ConnectionMgr connMgr;
 	static Connection connection;
 	
@@ -81,8 +84,8 @@ public class MQTTSDK
 			int responseCode=0;	
 			
 			HttpResponse response = client.execute(request);
-			HttpEntity responseEntity = response.getEntity();
-			Log.i("", "get http response: STATUS_CODE: " + response.getStatusLine().getStatusCode()+response.getStatusLine().getReasonPhrase());
+			
+			Log.i(TAG, "get http response: STATUS_CODE: " + response.getStatusLine().getStatusCode()+response.getStatusLine().getReasonPhrase());
 			responseCode = response.getStatusLine().getStatusCode();
 			if(responseCode == 406 || responseCode == 401 || responseCode == 404 || responseCode == 500)
 			{
@@ -95,16 +98,15 @@ public class MQTTSDK
 			try {
 				JSONObject resObj = new JSONObject(jsonStr);
 				JSONObject resData = resObj.getJSONObject("data");
-				Log.i("","resData : "+resData.toString());
+		
 				loginKey = resData.getString("key");
 				UserManager.SetAuthKey(loginKey);
-				Log.i("","loginKey : "+loginKey);
+				Log.i(TAG,"loginKey : "+loginKey);
 			} catch (JSONException e) {
 				// TODO Auto-generated catch block
-				Log.i("","JSON ERROR");
+				Log.i(TAG,"JSON ERROR");
 				e.printStackTrace();
 			}
-			
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -138,32 +140,129 @@ public class MQTTSDK
 		return ret; 
 	}
 	
-	public static int subscribe(Context context, String _deviceName, IUpdateListener _listener)
+	public static int Subscribe(Context context, String _deviceName, IUpdateListener _listener)
 	{
 		int ret=0;
 		String feedId = ServerAPIManager.GetFeedId(_deviceName);
-		
-		SubscribeCallback.setListener(_listener);
-		final Intent intent = new Intent(context, MQTTService.class);
-		intent.putExtra(FEEDID, feedId);
-		
-		 context.startService(intent);
-		
- 		try {
-            MqttClient mqttClient = new MqttClient(ConnectionMgr.MQTT_SERVER_URL, "android-client", new MemoryPersistence());
-            ConnectionMgr.getConnectionInstance(ConnectionMgr.MQTT_SERVER_URL);
-            MqttConnectOptions options = new MqttConnectOptions();
-                        
-            options.setUserName(UserManager.GetAuthKey());
-            options.setPassword("default".toCharArray());
-            mqttClient.setCallback(new SubscribeCallback());
-            mqttClient.connect(options);
-            Log.i("", "feedId = "+feedId);
-            mqttClient.subscribe(feedId);		 
-        } catch (MqttException e) {
-            Toast.makeText(context.getApplicationContext(), "Error : " + e.getMessage(), Toast.LENGTH_LONG).show();
-            e.printStackTrace();
-        }
+
+            connection = ConnectionMgr.getConnectionInstance(ConnectionMgr.MQTT_SERVER_URL);
+            try {
+				connection.subscribe(feedId, _listener);
+			} catch (MqttException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 		return ret;
+	}
+	
+	public static int Disconnect()
+	{
+		int result = 0;
+		
+		
+		return result;
+	}
+	
+	public static Vector<DeviceInfo> getDeviceList()
+	{
+	
+		int responseCode;
+		
+		HttpClient client = new DefaultHttpClient();
+		final HttpParams params = client.getParams();
+		
+		HttpConnectionParams.setConnectionTimeout(params, 30 * 1000);
+		HttpConnectionParams.setSoTimeout(params, 30 * 1000);
+
+		HttpPost request = new HttpPost();
+		request.setHeader("Content-Type", "application/json");
+		request.setHeader("Authorization", "Bearer "+UserManager.GetAuthKey());
+		
+		try {
+			request.setURI(new URI(ConnectionMgr.SERVER_API_GET_DEVICE_LIST_URL));
+		} catch (URISyntaxException e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+ 
+		
+		try {
+			HttpResponse response = client.execute(request);
+
+			Log.i(TAG, "get http response: STATUS_CODE: " + response.getStatusLine().getStatusCode()+response.getStatusLine().getReasonPhrase());
+			responseCode = response.getStatusLine().getStatusCode();
+			
+			if(responseCode == 406 || responseCode == 401 || responseCode == 404 || responseCode == 500)
+			{
+				return null;
+			}
+			
+			HttpEntity entity = response.getEntity();
+			String jsonStr = EntityUtils.toString(entity);
+			try {
+				JSONObject resObj = new JSONObject(jsonStr);
+				JSONObject resData = resObj.getJSONObject("data");
+				JSONArray deviceArray = resData.getJSONArray("devices"); 
+				
+				for(int i=0; i<deviceArray.length();i++)
+				{
+					JSONObject device = deviceArray.getJSONObject(i);
+					String name = device.getString("name");
+					String feedId = device.getString("feed_id");
+					String activationCode = device.getString("activation_code"); 
+					String productName = device.getString("product_name");
+					
+					deviceList.add(new MQTTSDK().new DeviceInfo(name, feedId, productName, activationCode));
+				}
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		} catch (ClientProtocolException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return deviceList;
+	}
+	
+	public class DeviceInfo{
+		String m_pName;
+		String m_pFeedId;
+		String m_pProductName;
+		String m_pActivationCode;
+
+		public DeviceInfo(String _name, String _feedId, String _productName, String _activationCode)
+		{
+			this.m_pName = _name;
+			this.m_pFeedId = _feedId;
+			this.m_pActivationCode = _activationCode;
+			this.m_pProductName = _productName;
+		}
+		
+		public String getDeviceName()
+		{
+			return this.m_pName;
+		}
+		
+		public String getFeedId()
+		{
+			return this.m_pFeedId;
+		}
+		
+		public String getActivationCode()
+		{
+			return this.m_pActivationCode;
+		}
+		
+		public String getProductname()
+		{
+			return this.m_pProductName;
+		}
 	}
 }

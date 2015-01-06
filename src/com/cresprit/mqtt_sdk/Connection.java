@@ -78,13 +78,13 @@ class Connection {
         System.out.println("Published data. Topic: " + topic.getName() + "  Message: " + message);
     }
 
-    public void subscribe(Context context, String _feedID) throws MqttException {
+    public void subscribe(String _feedID, IUpdateListener _listener) throws MqttException {
     	  
-          //options = new MqttConnectOptions();
-          //options.setUserName("e586fa6833374682a9d4dfcd6f4c6ec3");
-          //options.setPassword("default".toCharArray());
-         // client.setCallback(new SubscribeCallback(context));
-          //client.connect(options);
+          options = new MqttConnectOptions();
+          options.setUserName(UserManager.GetAuthKey());
+          options.setPassword("default".toCharArray());
+          client.setCallback(new SubscribeCallback(_listener));
+          client.connect(options);
 
           //Subscribe to all subtopics of homeautomation
           client.subscribe(_feedID);
